@@ -1,0 +1,10 @@
+node_modules/
+dist/
+artifacts/
+playwright-report/
+test-results/
+.omx/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
