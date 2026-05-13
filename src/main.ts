@@ -22,10 +22,23 @@ const startButton = requireElement<HTMLButtonElement>('#start');
 const urlSeed = new URLSearchParams(location.search).get('seed') ?? 'falppy-default';
 const engine = new GameEngine({ storage: new BrowserStorage(), seed: urlSeed });
 const assetBase = import.meta.env.BASE_URL;
-const renderer = new CanvasRenderer(canvas, `${assetBase}player-character.png`, `${assetBase}player-character.svg`);
+const playerSvgUrl = `${assetBase}player-character.svg`;
+const playerPngUrl = `${assetBase}player-character.png`;
+const renderer = new CanvasRenderer(canvas, playerSvgUrl);
 const audio = new AudioFeedback(() => engine.getSnapshot().muted);
 let lastTime = performance.now();
 let lastSnapshot = engine.getSnapshot();
+
+void preferPlayerPngWhenPresent();
+
+async function preferPlayerPngWhenPresent(): Promise<void> {
+  try {
+    const response = await fetch(playerPngUrl, { method: 'HEAD', cache: 'no-store' });
+    if (response.ok) renderer.setPlayerImage(playerPngUrl, playerSvgUrl);
+  } catch {
+    // Optional character override is unavailable; the tracked SVG remains active.
+  }
+}
 
 function frame(now: number): void {
   const delta = (now - lastTime) / 1000;

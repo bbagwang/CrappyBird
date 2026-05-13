@@ -69,7 +69,7 @@ https://bbagwang.github.io/CrappyBird/
 
 ## Character image
 
-The renderer first tries to load `public/player-character.png`. If that file is absent, it falls back to the included `public/player-character.svg` face sprite.
+The renderer uses the included `public/player-character.svg` face sprite by default and quietly switches to `public/player-character.png` only when that optional file exists.
 
 To use a specific face image, save a square-ish PNG at:
 

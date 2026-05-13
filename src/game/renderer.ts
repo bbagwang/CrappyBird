@@ -16,14 +16,18 @@ export class CanvasRenderer {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    playerImageUrl = '/player-character.png',
-    fallbackPlayerImageUrl = '/player-character.svg',
+    playerImageUrl = '/player-character.svg',
+    fallbackPlayerImageUrl?: string,
   ) {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D context unavailable');
     this.context = context;
     this.loadPlayerImage(playerImageUrl, fallbackPlayerImageUrl);
     this.resize();
+  }
+
+  setPlayerImage(playerImageUrl: string, fallbackPlayerImageUrl?: string): void {
+    this.loadPlayerImage(playerImageUrl, fallbackPlayerImageUrl);
   }
 
   resize(): void {
@@ -43,12 +47,13 @@ export class CanvasRenderer {
     this.drawTelegraphs(ctx, snapshot);
   }
 
-  private loadPlayerImage(primaryUrl: string, fallbackUrl: string): void {
+  private loadPlayerImage(primaryUrl: string, fallbackUrl?: string): void {
+    this.playerImageReady = false;
     this.playerImage.onload = () => {
       this.playerImageReady = true;
     };
     this.playerImage.onerror = () => {
-      if (this.playerImage.src.endsWith(fallbackUrl)) {
+      if (!fallbackUrl || this.playerImage.src.endsWith(fallbackUrl)) {
         this.playerImageReady = false;
         return;
       }
