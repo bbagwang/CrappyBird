@@ -1,76 +1,61 @@
-# Falppy Bird
+# Crappy Bird
 
-A lightweight TypeScript + Vite + Canvas browser game inspired by Flappy Bird. The MVP focuses on score chasing with five fair, telegraphed, skill-first gimmicks:
+`Crappy Bird`는 브라우저에서 바로 플레이할 수 있는 가벼운 TypeScript + Vite + Canvas 웹 게임입니다. 기본 조작은 단순하지만, 플레이 중 여러 기믹이 순서대로 등장해 점점 더 집중해서 버티는 구조입니다.
 
-1. Gravity flip zones
-2. Moving pipes
-3. Size shift gates
-4. Speed rings
-5. Risk coins
+## 핵심 기믹
 
-## Controls
+1. 중력 반전 구역: 일정 시간 동안 위아래 감각이 뒤집힙니다.
+2. 이동 파이프: 파이프 틈이 움직여 타이밍을 흔듭니다.
+3. 크기 변화 구역: 캐릭터가 작아져 좁은 구간을 통과하기 쉬워집니다.
+4. 가속 링: 속도가 올라가며 다음 판단 시간이 줄어듭니다.
+5. 위험 코인: 위험한 위치의 코인을 먹으면 추가 점수를 얻습니다.
+6. 슬로우 모션 구역: 잠깐 동안 진행 속도가 느려져 숨 돌릴 틈이 생깁니다.
+7. 보호막 구역: 짧은 시간 동안 충돌 한 번을 막아 줍니다.
+8. 바람 돌풍 구역: 상하로 흔드는 힘이 들어와 조작 리듬을 바꿉니다.
 
-- `Space` / `ArrowUp`: flap
-- Click / tap canvas: flap
-- `M`: toggle mute
-- `Space` on game over: restart
+## 조작법
 
-## Run locally
+- `스페이스` / `위쪽 화살표`: 날갯짓
+- 캔버스 클릭 / 터치: 날갯짓
+- `M`: 음소거 전환
+- 게임 오버 후 `스페이스` 또는 클릭: 즉시 재시작
+
+## 로컬 실행
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local Vite URL shown in the terminal.
-
-## Verification gates
-
-The game is not considered complete unless every gate passes and actual browser play validation succeeds:
-
-```bash
-npm run lint
-npm run typecheck
-npm run test:unit
-npm run build
-npm run test:e2e
-npm run actual-play
-```
-
-Or run the automated non-manual sequence:
+## 검증 명령
 
 ```bash
 npm run verify
+npm run actual-play
 ```
 
-`npm run actual-play` launches a production preview, drives a real browser session with keyboard input, plays five runs, records observed gimmicks, checks console errors, and writes evidence to `artifacts/actual-play-report.json` plus a screenshot.
+`npm run verify`는 린트, 타입 검사, 단위 테스트, 프로덕션 빌드, 브라우저 E2E를 모두 실행합니다. `npm run actual-play`는 실제 브라우저 입력으로 여러 번 플레이하며 모든 기믹 관측, 재시작 안정성, 콘솔 오류 유무를 확인합니다.
 
-On this Ubuntu 26.04 WSL environment, Playwright Chromium currently needs the project wrapper in `scripts/run-with-playwright-env.mjs`. The wrapper applies the Playwright Ubuntu 24.04 host fallback and prepends the locally extracted NSS/NSPR libraries under `.omx/browser-libs` when present, so the normal `npm run test:e2e`, `npm run verify`, and `npm run actual-play` scripts remain the commands to use.
+## 테스트용 디버그 표면
 
-## Testing and observability contract
+앱은 재현 가능한 테스트만을 위해 `window.crappyDebug.snapshot()`과 `window.crappyDebug.setSeed(seed)`를 제공합니다. 점수 지급, 위험 제거, 생존 강제, 충돌 비활성화, 순간 이동, 자동 통과 같은 치트성 명령은 제공하지 않습니다.
 
-The app exposes `window.falppyDebug.snapshot()` and `window.falppyDebug.setSeed(seed)` for reproducible testing only. The debug surface is read-only except seed selection before a run. It does not include commands to grant score, skip hazards, force survival, disable collision, teleport, bypass game-over, or auto-pass obstacles.
+## GitHub Pages 배포
 
-## GitHub Pages
+`main` 브랜치에 푸시하면 `.github/workflows/pages.yml`이 자동으로 검증과 빌드를 수행한 뒤 GitHub Pages에 배포합니다.
 
-This repository deploys from `main` through `.github/workflows/pages.yml`.
-
-The workflow validates lint, typecheck, and unit tests, then builds with:
+배포용 빌드를 로컬에서 확인하려면 다음 명령을 사용합니다.
 
 ```bash
 VITE_BASE_PATH=/CrappyBird/ npm run build
 ```
 
-Expected public URL after the Pages workflow finishes:
+공개 주소는 다음과 같습니다.
 
 ```text
 https://bbagwang.github.io/CrappyBird/
 ```
 
-## Character image
+## 캐릭터 이미지
 
-The renderer uses the included `public/player-character.svg` face sprite by default so the live site stays console-clean with no missing optional image requests.
-
-To use a different specific face image, replace the tracked SVG sprite or update `src/main.ts` to point `CanvasRenderer` at your square-ish PNG asset.
-
-Then rebuild or push to `main` so GitHub Pages redeploys.
+캐릭터는 사용자가 요청한 원본 얼굴 사진을 바이트 변경 없이 `public/player-character.jpg`로 복사해 사용합니다. 렌더러는 이 이미지를 그대로 그리며, 다른 스프라이트나 대체 SVG를 사용하지 않습니다.

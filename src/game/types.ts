@@ -2,7 +2,15 @@ export const FIELD_WIDTH = 480;
 export const FIELD_HEIGHT = 720;
 
 export type Phase = 'start' | 'playing' | 'gameOver';
-export type GimmickType = 'gravityFlip' | 'movingPipe' | 'sizeShift' | 'speedRing' | 'riskCoin';
+export type GimmickType =
+  | 'gravityFlip'
+  | 'movingPipe'
+  | 'sizeShift'
+  | 'speedRing'
+  | 'riskCoin'
+  | 'slowMo'
+  | 'shieldBubble'
+  | 'windGust';
 export type DeathCause = 'pipe' | 'bounds' | 'none';
 
 export interface PlayerState {
@@ -30,7 +38,7 @@ export interface ObstacleState {
 
 export interface ZoneState {
   id: number;
-  type: 'gravityFlip' | 'sizeShift' | 'speedRing';
+  type: Exclude<GimmickType, 'movingPipe' | 'riskCoin'>;
   x: number;
   y: number;
   width: number;
@@ -49,7 +57,7 @@ export interface CoinState {
 }
 
 export interface ActiveEffect {
-  type: 'gravityFlip' | 'sizeShift' | 'speedRing';
+  type: Exclude<GimmickType, 'movingPipe' | 'riskCoin'>;
   remaining: number;
 }
 
@@ -67,6 +75,9 @@ export interface Counters {
   sizeShiftSeen: number;
   speedRingSeen: number;
   riskCoinSeen: number;
+  slowMoSeen: number;
+  shieldBubbleSeen: number;
+  windGustSeen: number;
 }
 
 export interface GameSnapshot {

@@ -16,8 +16,8 @@ import {
   type ZoneState,
 } from './types';
 
-const HIGH_SCORE_KEY = 'falppy.highScore';
-const MUTED_KEY = 'falppy.muted';
+const HIGH_SCORE_KEY = 'crappy.highScore';
+const MUTED_KEY = 'crappy.muted';
 const BASE_RADIUS = 14;
 const PLAYER_X = 118;
 const BASE_GRAVITY = 1380;
@@ -25,18 +25,22 @@ const GRAVITY_FLIP_DURATION = 2.35;
 const GRAVITY_FLIP_STRENGTH_SCALE = 0.7;
 const FLAP_VELOCITY = -410;
 const MAX_FALL_SPEED = 560;
-const BASE_SPEED = 138;
-const SPEED_CAP = 235;
-const BASE_GAP = 260;
-const MIN_GAP = 205;
+const BASE_SPEED = 132;
+const SPEED_CAP = 220;
+const BASE_GAP = 280;
+const MIN_GAP = 220;
 const PIPE_WIDTH = 68;
 const TELEGRAPH_MIN_SECONDS = 1.2;
-const GIMMICK_SEQUENCE: readonly ('normal' | 'movingPipe' | 'sizeShift' | 'gravityFlip' | 'speedRing' | 'riskCoin')[] = [
+type PatternType = 'normal' | GimmickType;
+const GIMMICK_SEQUENCE: readonly PatternType[] = [
   'normal',
   'movingPipe',
   'sizeShift',
   'gravityFlip',
+  'slowMo',
+  'shieldBubble',
   'speedRing',
+  'windGust',
   'riskCoin',
   'movingPipe',
   'riskCoin',
@@ -67,7 +71,7 @@ export class GameEngine {
   private elapsedSeconds = 0;
 
   constructor(private readonly options: EngineOptions) {
-    this.seed = options.seed ?? 'falppy-default';
+    this.seed = options.seed ?? 'crappy-default';
     this.rng = new SeededRng(this.seed);
     this.highScore = this.options.storage.readNumber(HIGH_SCORE_KEY, 0);
     this.muted = this.options.storage.readBoolean(MUTED_KEY, false);
@@ -75,7 +79,7 @@ export class GameEngine {
 
   setSeed(seed: string): boolean {
     if (this.phase === 'playing') return false;
-    this.seed = seed.trim() || 'falppy-default';
+    this.seed = seed.trim() || 'crappy-default';
     this.rng = new SeededRng(this.seed);
     return true;
   }
@@ -203,6 +207,9 @@ export class GameEngine {
       sizeShiftSeen: 0,
       speedRingSeen: 0,
       riskCoinSeen: 0,
+      slowMoSeen: 0,
+      shieldBubbleSeen: 0,
+      windGustSeen: 0,
     };
   }
 
@@ -220,6 +227,9 @@ export class GameEngine {
     const gravityDirection = this.isGravityInverted() ? -1 : 1;
     const gravityScale = this.isGravityInverted() ? GRAVITY_FLIP_STRENGTH_SCALE : 1;
     this.player.vy += BASE_GRAVITY * gravityScale * gravityDirection * dt;
+    if (this.hasEffect('windGust')) {
+      this.player.vy += Math.sin(this.elapsedSeconds * 9.2) * 300 * dt;
+    }
     this.player.vy = clamp(this.player.vy, -MAX_FALL_SPEED, MAX_FALL_SPEED);
     this.player.y += this.player.vy * dt;
   }
@@ -259,7 +269,8 @@ export class GameEngine {
   private spawnPattern(): void {
     const pattern = GIMMICK_SEQUENCE[this.obstacleIndex % GIMMICK_SEQUENCE.length];
     const gapHeight = this.currentGapHeight();
-    const gapY = clamp(this.rng.range(170, FIELD_HEIGHT - 170), gapHeight / 2 + 28, FIELD_HEIGHT - gapHeight / 2 - 28);
+    const safeGapEdge = Math.max(190, gapHeight / 2 + 58);
+    const gapY = this.rng.range(safeGapEdge, FIELD_HEIGHT - safeGapEdge);
     const obstacle: ObstacleState = {
       id: this.nextId++,
       x: FIELD_WIDTH + 60,
@@ -269,7 +280,7 @@ export class GameEngine {
       gapHeight,
       passed: false,
       moving: pattern === 'movingPipe',
-      amplitude: pattern === 'movingPipe' ? 28 : 0,
+      amplitude: pattern === 'movingPipe' ? 24 : 0,
       frequency: pattern === 'movingPipe' ? 1.25 : 0,
       telegraph: pattern !== 'normal',
     };
@@ -281,6 +292,9 @@ export class GameEngine {
     if (pattern === 'sizeShift') this.spawnZone('sizeShift', obstacle.x - 92, gapY, 58, gapHeight + 42);
     if (pattern === 'speedRing') this.spawnZone('speedRing', obstacle.x - 92, gapY, 62, gapHeight + 18);
     if (pattern === 'riskCoin') this.spawnRiskCoin(obstacle.x + obstacle.width / 2, this.riskCoinY(gapY, gapHeight));
+    if (pattern === 'slowMo') this.spawnZone('slowMo', obstacle.x - 92, gapY, 64, gapHeight + 60);
+    if (pattern === 'shieldBubble') this.spawnZone('shieldBubble', obstacle.x - 98, gapY, 62, 112);
+    if (pattern === 'windGust') this.spawnZone('windGust', obstacle.x - 92, FIELD_HEIGHT / 2, 58, FIELD_HEIGHT);
 
     this.obstacleIndex += 1;
   }
@@ -328,6 +342,18 @@ export class GameEngine {
         this.addOrRefreshEffect('speedRing', 2.4);
         this.counters.speedRingSeen += 1;
       }
+      if (zone.type === 'slowMo') {
+        this.addOrRefreshEffect('slowMo', 3.2);
+        this.counters.slowMoSeen += 1;
+      }
+      if (zone.type === 'shieldBubble') {
+        this.addOrRefreshEffect('shieldBubble', 5.5);
+        this.counters.shieldBubbleSeen += 1;
+      }
+      if (zone.type === 'windGust') {
+        this.addOrRefreshEffect('windGust', 3.0);
+        this.counters.windGustSeen += 1;
+      }
     }
   }
 
@@ -354,17 +380,29 @@ export class GameEngine {
 
   private applyCollisions(): void {
     if (this.player.y - this.player.radius < 0 || this.player.y + this.player.radius > FIELD_HEIGHT) {
+      if (this.consumeShield()) {
+        this.player.y = clamp(this.player.y, this.player.radius + 2, FIELD_HEIGHT - this.player.radius - 2);
+        this.player.vy = this.player.y < FIELD_HEIGHT / 2 ? Math.abs(this.player.vy) * 0.25 : -Math.abs(this.player.vy) * 0.25;
+        return;
+      }
       this.endRun('bounds');
       return;
     }
 
     const playerCircle = { x: this.player.x, y: this.player.y, radius: this.player.radius };
     for (const obstacle of this.obstacles) {
+      if (obstacle.passed) continue;
       const gapTop = obstacle.gapY - obstacle.gapHeight / 2;
       const gapBottom = obstacle.gapY + obstacle.gapHeight / 2;
       const topRect = { x: obstacle.x, y: 0, width: obstacle.width, height: gapTop };
       const bottomRect = { x: obstacle.x, y: gapBottom, width: obstacle.width, height: FIELD_HEIGHT - gapBottom };
       if (circleIntersectsRect(playerCircle, topRect) || circleIntersectsRect(playerCircle, bottomRect)) {
+        if (this.consumeShield()) {
+          obstacle.passed = true;
+          this.score += 1;
+          this.counters.obstaclesPassed += 1;
+          return;
+        }
         this.endRun('pipe');
         return;
       }
@@ -397,14 +435,23 @@ export class GameEngine {
     return this.activeEffects.some((effect) => effect.type === type && effect.remaining > 0);
   }
 
+  private consumeShield(): boolean {
+    const shieldIndex = this.activeEffects.findIndex((effect) => effect.type === 'shieldBubble' && effect.remaining > 0);
+    if (shieldIndex < 0) return false;
+    this.activeEffects.splice(shieldIndex, 1);
+    return true;
+  }
+
   private currentSpeed(): number {
     const ramp = BASE_SPEED + this.score * 4.5 + this.elapsedSeconds * 1.6;
-    const speed = Math.min(SPEED_CAP, ramp);
-    return this.hasEffect('speedRing') ? Math.min(SPEED_CAP + 16, speed * 1.08) : speed;
+    let speed = Math.min(SPEED_CAP, ramp);
+    if (this.hasEffect('speedRing')) speed = Math.min(SPEED_CAP + 16, speed * 1.08);
+    if (this.hasEffect('slowMo')) speed *= 0.68;
+    return speed;
   }
 
   private spawnEvery(): number {
-    return clamp(1.42 - this.score * 0.01 - this.elapsedSeconds * 0.002, 1.02, 1.42);
+    return clamp(1.5 - this.score * 0.008 - this.elapsedSeconds * 0.0015, 1.12, 1.5);
   }
 
   private currentGapHeight(): number {
@@ -418,6 +465,9 @@ export class GameEngine {
     if (this.counters.sizeShiftSeen > 0) seen.push('sizeShift');
     if (this.counters.speedRingSeen > 0) seen.push('speedRing');
     if (this.counters.riskCoinSeen > 0) seen.push('riskCoin');
+    if (this.counters.slowMoSeen > 0) seen.push('slowMo');
+    if (this.counters.shieldBubbleSeen > 0) seen.push('shieldBubble');
+    if (this.counters.windGustSeen > 0) seen.push('windGust');
     return seen;
   }
 }

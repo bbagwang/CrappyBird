@@ -3,7 +3,7 @@ import type { GameSnapshot } from '../src/game/types';
 
 declare global {
   interface Window {
-    falppyDebug: Readonly<{
+    crappyDebug: Readonly<{
       setSeed(seed: string): boolean;
       snapshot(): GameSnapshot;
     }>;
@@ -11,12 +11,12 @@ declare global {
 }
 
 async function snapshot(page: Page): Promise<GameSnapshot> {
-  return page.evaluate(() => window.falppyDebug.snapshot());
+  return page.evaluate(() => window.crappyDebug.snapshot());
 }
 
 async function startSeededRun(page: Page, seed: string): Promise<void> {
   await page.goto(`/?seed=${encodeURIComponent(seed)}`);
-  await page.evaluate((value) => window.falppyDebug.setSeed(value), seed);
+  await page.evaluate((value) => window.crappyDebug.setSeed(value), seed);
   await page.keyboard.press('Space');
   expect((await snapshot(page)).phase).toBe('playing');
 }
@@ -31,9 +31,9 @@ async function pilotUntil(page: Page, accept: (snapshot: GameSnapshot) => boolea
     const latest = await snapshot(page);
     if (accept(latest) || latest.phase !== 'playing') return latest;
     const upcoming = latest.nextObstacle;
-    const target = upcoming && upcoming.x < latest.player.x + 285 ? upcoming.gapY : 360;
-    const predictedY = latest.player.y + latest.player.vy * 0.12;
-    const margin = upcoming?.moving ? 34 : 42;
+    const target = upcoming && upcoming.x < latest.player.x + 340 ? upcoming.gapY : 360;
+    const predictedY = latest.player.y + latest.player.vy * 0.15;
+    const margin = upcoming?.moving ? 40 : 48;
     if (!latest.player.gravityInverted && (predictedY > target + margin || latest.player.y > 585)) {
       await page.keyboard.press('Space');
     }
@@ -47,9 +47,9 @@ async function pilotUntil(page: Page, accept: (snapshot: GameSnapshot) => boolea
 
 function reachedAllGimmicks(snapshot: GameSnapshot): boolean {
   return (
-    snapshot.score >= 5 &&
-    snapshot.counters.obstaclesPassed >= 5 &&
-    ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin'].every((gimmick) =>
+    snapshot.score >= 8 &&
+    snapshot.counters.obstaclesPassed >= 8 &&
+    ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust'].every((gimmick) =>
       snapshot.seenGimmicks.includes(gimmick as GameSnapshot['seenGimmicks'][number]),
     )
   );
@@ -64,18 +64,25 @@ function attachConsoleGuards(page: Page): string[] {
   return errors;
 }
 
-test('startup, layout, mute, and debug surface are safe', async ({ page }) => {
+test('시작 화면, 레이아웃, 음소거, 디버그 표면이 안전하다', async ({ page }) => {
   const errors = attachConsoleGuards(page);
-  await page.addInitScript(() => localStorage.setItem('falppy.highScore', '9'));
+  await page.addInitScript(() => localStorage.setItem('crappy.highScore', '9'));
   await page.goto('/?seed=startup');
-  await expect(page.getByRole('heading', { name: 'Falppy Bird' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Run' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Toggle mute' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Crappy Bird' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '시작하기' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '음소거 전환' })).toBeVisible();
   await expect(page.locator('#high-score')).toHaveText('9');
-  await page.getByRole('button', { name: 'Toggle mute' }).click();
-  await expect(page.getByRole('button', { name: 'Toggle mute' })).toContainText('Muted');
+  await expect
+    .poll(async () =>
+      page.evaluate(() => performance.getEntriesByType('resource').map((entry) => new URL(entry.name).pathname)),
+    )
+    .toContain('/player-character.jpg');
+  const loadedAssetPaths = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => new URL(entry.name).pathname));
+  expect(loadedAssetPaths.some((path) => path.endsWith('player-character.svg'))).toBe(false);
+  await page.getByRole('button', { name: '음소거 전환' }).click();
+  await expect(page.getByRole('button', { name: '음소거 전환' })).toContainText('음소거');
 
-  const debugKeys = await page.evaluate(() => Object.keys(window.falppyDebug).sort());
+  const debugKeys = await page.evaluate(() => Object.keys(window.crappyDebug).sort());
   expect(debugKeys).toEqual(['setSeed', 'snapshot']);
   const forbidden = ['grantScore', 'skipHazards', 'forceSurvival', 'disableCollision', 'autoPassPipes', 'teleportPlayer'];
   for (const key of forbidden) expect(debugKeys).not.toContain(key);
@@ -86,10 +93,10 @@ test('startup, layout, mute, and debug surface are safe', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('mouse pointer and touch taps flap through the same active-play command path', async ({ page }, testInfo) => {
+test('마우스 포인터와 터치 입력이 같은 날갯짓 경로를 사용한다', async ({ page }, testInfo) => {
   const errors = attachConsoleGuards(page);
   await page.goto('/?seed=pointer-touch');
-  await page.getByRole('button', { name: 'Start Run' }).click();
+  await page.getByRole('button', { name: '시작하기' }).click();
   await expect.poll(async () => (await snapshot(page)).phase).toBe('playing');
 
   const before = await snapshot(page);
@@ -107,23 +114,23 @@ test('mouse pointer and touch taps flap through the same active-play command pat
   expect(errors).toEqual([]);
 });
 
-test('play loop reaches all five gimmicks, game over, and restart with real inputs', async ({ page }) => {
+test('실제 입력 플레이 루프가 8개 기믹, 게임 오버, 재시작에 도달한다', async ({ page }) => {
   const errors = attachConsoleGuards(page);
   await startSeededRun(page, 'e2e-all-gimmicks');
-  const reached = await pilotUntil(page, reachedAllGimmicks, 18_000);
-  expect(reached.score).toBeGreaterThanOrEqual(5);
-  expect(reached.seenGimmicks).toEqual(expect.arrayContaining(['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin']));
-  expect(reached.counters.obstaclesPassed).toBeGreaterThanOrEqual(5);
+  const reached = await pilotUntil(page, reachedAllGimmicks, 30_000);
+  expect(reached.score).toBeGreaterThanOrEqual(8);
+  expect(reached.seenGimmicks).toEqual(expect.arrayContaining(['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust']));
+  expect(reached.counters.obstaclesPassed).toBeGreaterThanOrEqual(8);
 
   let gameOver = reached;
   if (reached.phase === 'playing') {
     await page.waitForTimeout(250);
-    // Stop piloting to produce a real collision/game-over without debug shortcuts.
+    // 디버그 지름길 없이 실제 충돌과 게임 오버가 나도록 조종을 멈춘다.
     await expect.poll(async () => {
       const state = await snapshot(page);
       if (state.phase === 'playing') await page.waitForTimeout(250);
       return state.phase;
-    }, { timeout: 10_000 }).toBe('gameOver');
+    }, { timeout: 15_000 }).toBe('gameOver');
     gameOver = await snapshot(page);
   } else {
     expect(reached.phase).toBe('gameOver');
@@ -137,7 +144,7 @@ test('play loop reaches all five gimmicks, game over, and restart with real inpu
   expect(errors).toEqual([]);
 });
 
-test('responsive mobile viewport remains playable and persistence works', async ({ page }) => {
+test('모바일 반응형 화면에서도 플레이와 저장이 동작한다', async ({ page }) => {
   const errors = attachConsoleGuards(page);
   await page.setViewportSize({ width: 390, height: 720 });
   await startSeededRun(page, 'mobile');
@@ -145,9 +152,9 @@ test('responsive mobile viewport remains playable and persistence works', async 
   const duringPlay = await snapshot(page);
   expect(duringPlay.phase).toBe('playing');
   expect(duringPlay.counters.inputEvents).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Toggle mute' }).click();
+  await page.getByRole('button', { name: '음소거 전환' }).click();
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Toggle mute' })).toContainText('Muted');
+  await expect(page.getByRole('button', { name: '음소거 전환' })).toContainText('음소거');
   await page.setViewportSize({ width: 812, height: 420 });
   const canvasBox = await page.locator('#game').boundingBox();
   expect(canvasBox?.width).toBeGreaterThan(240);

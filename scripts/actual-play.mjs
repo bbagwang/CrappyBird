@@ -14,15 +14,15 @@ async function waitForServer(timeoutMs = 60_000) {
       const response = await fetch(url);
       if (response.ok) return;
     } catch (_error) {
-      // Preview server not ready yet.
+      // 미리보기 서버가 아직 준비되지 않았습니다.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('Preview server did not become ready');
+  throw new Error('미리보기 서버가 준비되지 않았습니다');
 }
 
 async function snapshot(page) {
-  return page.evaluate(() => window.falppyDebug.snapshot());
+  return page.evaluate(() => window.crappyDebug.snapshot());
 }
 
 async function pilotFor(page, durationMs) {
@@ -31,9 +31,9 @@ async function pilotFor(page, durationMs) {
     const latest = await snapshot(page);
     if (latest.phase !== 'playing') return latest;
     const upcoming = latest.nextObstacle;
-    const target = upcoming && upcoming.x < latest.player.x + 285 ? upcoming.gapY : 360;
-    const predictedY = latest.player.y + latest.player.vy * 0.12;
-    const margin = upcoming?.moving ? 34 : 42;
+    const target = upcoming && upcoming.x < latest.player.x + 340 ? upcoming.gapY : 360;
+    const predictedY = latest.player.y + latest.player.vy * 0.15;
+    const margin = upcoming?.moving ? 40 : 48;
     if (!latest.player.gravityInverted && (predictedY > target + margin || latest.player.y > 585)) await page.keyboard.press('Space');
     if (latest.player.gravityInverted && (predictedY < target - margin || latest.player.y < 135)) await page.keyboard.press('Space');
     await page.waitForTimeout(35);
@@ -43,12 +43,12 @@ async function pilotFor(page, durationMs) {
 
 async function waitForGameOver(page) {
   const start = Date.now();
-  while (Date.now() - start < 10_000) {
+  while (Date.now() - start < 15_000) {
     const state = await snapshot(page);
     if (state.phase === 'gameOver') return state;
     await page.waitForTimeout(250);
   }
-  throw new Error('Expected a natural game over after pilot stopped');
+  throw new Error('조종을 멈춘 뒤 자연스러운 게임 오버가 필요합니다');
 }
 
 const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(port)], {
@@ -75,9 +75,9 @@ try {
   const allSeen = new Set();
   for (let run = 1; run <= 5; run += 1) {
     await page.goto(`${url}/?seed=actual-play-${run}`);
-    await page.evaluate((seed) => window.falppyDebug.setSeed(seed), `actual-play-${run}`);
+    await page.evaluate((seed) => window.crappyDebug.setSeed(seed), `actual-play-${run}`);
     await page.keyboard.press('Space');
-    const piloted = await pilotFor(page, run === 1 ? 18_000 : 8_000);
+    const piloted = await pilotFor(page, run === 1 ? 30_000 : 12_000);
     for (const gimmick of piloted.seenGimmicks) allSeen.add(gimmick);
     const scoreBeforeCrash = piloted.score;
     const seenBeforeCrash = [...piloted.seenGimmicks];
@@ -97,7 +97,7 @@ try {
   await context.close();
   await browser.close();
 
-  const required = ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin'];
+  const required = ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust'];
   const missing = required.filter((gimmick) => !allSeen.has(gimmick));
   const report = {
     url,
@@ -105,15 +105,15 @@ try {
     allSeenGimmicks: [...allSeen].sort(),
     missingGimmicks: missing,
     consoleErrors,
-    fairness: 'Observed deaths were produced by stopping real input after piloted play; no invisible debug shortcut was used.',
+    fairness: '플레이 조종을 멈춘 뒤 실제 입력만으로 사망을 확인했습니다. 보이지 않는 디버그 지름길은 사용하지 않았습니다.',
     restartReliability: runs.every((run) => run.restarts >= 1),
     screenshot: `${artifactsDir}/actual-play-final.png`,
   };
   await writeFile(`${artifactsDir}/actual-play-report.json`, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
-  if (missing.length > 0) throw new Error(`Missing gimmicks during actual play: ${missing.join(', ')}`);
-  if (consoleErrors.length > 0) throw new Error(`Console errors during actual play: ${consoleErrors.join(' | ')}`);
-  if (runs.some((run) => run.scoreBeforeCrash < 1)) throw new Error('A run failed to reach a playable score before crash');
+  if (missing.length > 0) throw new Error(`실제 플레이 중 관측하지 못한 기믹: ${missing.join(', ')}`);
+  if (consoleErrors.length > 0) throw new Error(`실제 플레이 중 콘솔 오류: ${consoleErrors.join(' | ')}`);
+  if (runs.some((run) => run.scoreBeforeCrash < 1)) throw new Error('충돌 전 플레이 가능한 점수에 도달하지 못한 회차가 있습니다');
   console.log(JSON.stringify(report, null, 2));
 } finally {
   const exited = new Promise((resolve) => {

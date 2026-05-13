@@ -2,7 +2,7 @@ export class SeededRng {
   private state: number;
 
   constructor(seed: string) {
-    this.state = hashSeed(seed || 'falppy-default');
+    this.state = hashSeed(seed || 'crappy-default');
   }
 
   next(): number {

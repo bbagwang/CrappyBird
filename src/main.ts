@@ -19,11 +19,11 @@ const overlay = requireElement<HTMLElement>('#overlay');
 const overlayMessage = requireElement<HTMLElement>('#overlay-message');
 const startButton = requireElement<HTMLButtonElement>('#start');
 
-const urlSeed = new URLSearchParams(location.search).get('seed') ?? 'falppy-default';
+const urlSeed = new URLSearchParams(location.search).get('seed') ?? 'crappy-default';
 const engine = new GameEngine({ storage: new BrowserStorage(), seed: urlSeed });
 const assetBase = import.meta.env.BASE_URL;
-const playerSvgUrl = `${assetBase}player-character.svg`;
-const renderer = new CanvasRenderer(canvas, playerSvgUrl);
+const playerImageUrl = `${assetBase}player-character.jpg`;
+const renderer = new CanvasRenderer(canvas, playerImageUrl);
 const audio = new AudioFeedback(() => engine.getSnapshot().muted);
 let lastTime = performance.now();
 let lastSnapshot = engine.getSnapshot();
@@ -43,7 +43,7 @@ function frame(now: number): void {
 function updateHud(snapshot: GameSnapshot): void {
   scoreElement.textContent = String(snapshot.score);
   highScoreElement.textContent = String(snapshot.highScore);
-  muteButton.textContent = snapshot.muted ? 'Muted' : 'Sound On';
+  muteButton.textContent = snapshot.muted ? '음소거' : '소리 켜짐';
   muteButton.setAttribute('aria-pressed', String(snapshot.muted));
 
   if (snapshot.phase === 'playing') {
@@ -53,12 +53,18 @@ function updateHud(snapshot: GameSnapshot): void {
 
   overlay.classList.remove('hidden');
   if (snapshot.phase === 'start') {
-    startButton.textContent = 'Start Run';
-    overlayMessage.textContent = 'Flap through fair chaos. Watch the warnings, chase the score.';
+    startButton.textContent = '시작하기';
+    overlayMessage.textContent = '공정한 혼돈을 통과하세요. 경고를 보고 점수를 노리세요.';
   } else {
-    startButton.textContent = 'Restart';
-    overlayMessage.textContent = `Game over (${snapshot.deathCause}). Score ${snapshot.score}. High ${snapshot.highScore}. Space/click to retry instantly.`;
+    startButton.textContent = '다시 시작';
+    overlayMessage.textContent = `게임 오버 (${deathCauseLabel(snapshot.deathCause)}). 점수 ${snapshot.score}. 최고점 ${snapshot.highScore}. 스페이스 또는 클릭으로 바로 재시작하세요.`;
   }
+}
+
+function deathCauseLabel(cause: GameSnapshot['deathCause']): string {
+  if (cause === 'pipe') return '파이프 충돌';
+  if (cause === 'bounds') return '경계 이탈';
+  return '없음';
 }
 
 function playTransitionSounds(previous: GameSnapshot, next: GameSnapshot): void {
@@ -97,7 +103,7 @@ canvas.addEventListener('pointerdown', (event) => {
 startButton.addEventListener('click', () => flap());
 muteButton.addEventListener('click', () => toggleMute());
 
-window.falppyDebug = Object.freeze({
+window.crappyDebug = Object.freeze({
   setSeed(seed: string): boolean {
     return engine.setSeed(seed);
   },
@@ -112,7 +118,7 @@ requestAnimationFrame(frame);
 
 declare global {
   interface Window {
-    falppyDebug: Readonly<{
+    crappyDebug: Readonly<{
       setSeed(seed: string): boolean;
       snapshot(): GameSnapshot;
     }>;

@@ -7,6 +7,9 @@ const GIMMICK_COLORS: Record<GimmickType, string> = {
   sizeShift: '#f9a8d4',
   speedRing: '#fde047',
   riskCoin: '#fb923c',
+  slowMo: '#93c5fd',
+  shieldBubble: '#86efac',
+  windGust: '#f0abfc',
 };
 
 export class CanvasRenderer {
@@ -16,18 +19,13 @@ export class CanvasRenderer {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    playerImageUrl = '/player-character.svg',
-    fallbackPlayerImageUrl?: string,
+    playerImageUrl = '/player-character.jpg',
   ) {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D context unavailable');
     this.context = context;
-    this.loadPlayerImage(playerImageUrl, fallbackPlayerImageUrl);
+    this.loadPlayerImage(playerImageUrl);
     this.resize();
-  }
-
-  setPlayerImage(playerImageUrl: string, fallbackPlayerImageUrl?: string): void {
-    this.loadPlayerImage(playerImageUrl, fallbackPlayerImageUrl);
   }
 
   resize(): void {
@@ -47,17 +45,13 @@ export class CanvasRenderer {
     this.drawTelegraphs(ctx, snapshot);
   }
 
-  private loadPlayerImage(primaryUrl: string, fallbackUrl?: string): void {
+  private loadPlayerImage(primaryUrl: string): void {
     this.playerImageReady = false;
     this.playerImage.onload = () => {
       this.playerImageReady = true;
     };
     this.playerImage.onerror = () => {
-      if (!fallbackUrl || this.playerImage.src.endsWith(fallbackUrl)) {
-        this.playerImageReady = false;
-        return;
-      }
-      this.playerImage.src = fallbackUrl;
+      this.playerImageReady = false;
     };
     this.playerImage.src = primaryUrl;
   }
@@ -143,7 +137,7 @@ export class CanvasRenderer {
         ctx.fillStyle = '#082f49';
         ctx.font = '800 12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('MOVE', obstacle.x + obstacle.width / 2, Math.max(18, gapTop - 10));
+        ctx.fillText('이동', obstacle.x + obstacle.width / 2, Math.max(18, gapTop - 10));
       }
       ctx.restore();
     }
@@ -155,39 +149,11 @@ export class CanvasRenderer {
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(Math.max(-0.55, Math.min(0.55, player.vy / 650)) * (player.gravityInverted ? -1 : 1));
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radius * 1.2, radius * 1.2, 0, 0, Math.PI * 2);
-    ctx.fillStyle = player.gravityInverted ? '#c4b5fd' : '#ffcf4d';
-    ctx.fill();
-    ctx.save();
-    ctx.clip();
     if (this.playerImageReady) {
-      const size = radius * 2.55;
+      const size = radius * 2.8;
       ctx.drawImage(this.playerImage, -size / 2, -size / 2, size, size);
-    } else {
-      this.drawFallbackBirdFace(ctx, radius);
     }
     ctx.restore();
-    ctx.strokeStyle = player.gravityInverted ? '#ede9fe' : '#fff9c2';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = '#fb923c';
-    ctx.beginPath();
-    ctx.moveTo(radius * 0.95, 0);
-    ctx.lineTo(radius * 1.52, -5);
-    ctx.lineTo(radius * 1.52, 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  private drawFallbackBirdFace(ctx: CanvasRenderingContext2D, radius: number): void {
-    ctx.fillStyle = '#ffcf4d';
-    ctx.fillRect(-radius * 1.3, -radius * 1.3, radius * 2.6, radius * 2.6);
-    ctx.fillStyle = '#111827';
-    ctx.beginPath();
-    ctx.arc(radius * 0.32, -radius * 0.2, Math.max(2.5, radius * 0.15), 0, Math.PI * 2);
-    ctx.fill();
   }
 
   private drawTelegraphs(ctx: CanvasRenderingContext2D, snapshot: GameSnapshot): void {
@@ -199,7 +165,7 @@ export class CanvasRenderer {
       ctx.fillStyle = GIMMICK_COLORS[gimmick];
       ctx.fillRect(18, y - 14, 12, 12);
       ctx.fillStyle = '#f7fbff';
-      ctx.fillText(`${labelFor(gimmick)} active`, 38, y - 4);
+      ctx.fillText(`${labelFor(gimmick)} 작동 중`, 38, y - 4);
       y += 20;
     }
     ctx.restore();
@@ -208,11 +174,14 @@ export class CanvasRenderer {
 
 function labelFor(type: GimmickType | 'sizeShift' | 'speedRing' | 'gravityFlip'): string {
   const labels: Record<string, string> = {
-    gravityFlip: 'GRAVITY',
-    movingPipe: 'MOVING',
-    sizeShift: 'SIZE',
-    speedRing: 'SPEED',
-    riskCoin: 'COIN',
+    gravityFlip: '중력 반전',
+    movingPipe: '이동 파이프',
+    sizeShift: '크기 변화',
+    speedRing: '가속',
+    riskCoin: '위험 코인',
+    slowMo: '슬로우',
+    shieldBubble: '보호막',
+    windGust: '돌풍',
   };
   return labels[type];
 }

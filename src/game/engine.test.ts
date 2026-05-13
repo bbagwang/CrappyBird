@@ -32,18 +32,22 @@ function stepUntil(engine: GameEngine, accept: (snapshot: GameSnapshot) => boole
 }
 
 function reachedAllGimmicks(snapshot: GameSnapshot): boolean {
-  return ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin'].every((gimmick) =>
+  return ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust'].every((gimmick) =>
     snapshot.seenGimmicks.includes(gimmick as GameSnapshot['seenGimmicks'][number]),
   );
+}
+
+function includesActive(snapshot: GameSnapshot, gimmick: GameSnapshot['activeGimmicks'][number]): boolean {
+  return snapshot.activeGimmicks.includes(gimmick);
 }
 
 function pilotInput(engine: GameEngine): void {
   const snapshot = engine.getSnapshot();
   if (snapshot.phase !== 'playing') return;
   const upcoming = snapshot.nextObstacle;
-  const target = upcoming && upcoming.x < snapshot.player.x + 285 ? upcoming.gapY : 360;
-  const predictedY = snapshot.player.y + snapshot.player.vy * 0.12;
-  const margin = upcoming?.moving ? 34 : 42;
+  const target = upcoming && upcoming.x < snapshot.player.x + 340 ? upcoming.gapY : 360;
+  const predictedY = snapshot.player.y + snapshot.player.vy * 0.15;
+  const margin = upcoming?.moving ? 40 : 48;
   if (!snapshot.player.gravityInverted && (predictedY > target + margin || snapshot.player.y > 585)) engine.flap();
   if (snapshot.player.gravityInverted && (predictedY < target - margin || snapshot.player.y < 135)) engine.flap();
 }
@@ -51,8 +55,8 @@ function pilotInput(engine: GameEngine): void {
 describe('GameEngine core state', () => {
   it('starts on the start screen and loads stored high score and mute', () => {
     const storage = new MemoryStorage();
-    storage.writeNumber('falppy.highScore', 12);
-    storage.writeBoolean('falppy.muted', true);
+    storage.writeNumber('crappy.highScore', 12);
+    storage.writeBoolean('crappy.muted', true);
     const engine = new GameEngine({ storage, seed: 'initial' });
     const snapshot = engine.getSnapshot();
     expect(snapshot.phase).toBe('start');
@@ -127,7 +131,7 @@ describe('physics, collision, and scoring', () => {
   it('scores obstacle passes and risk coins exactly once', () => {
     const engine = makeEngine('score-risk');
     engine.startRun();
-    const snapshot = step(engine, 10, true);
+    const snapshot = step(engine, 11.5, true);
     expect(snapshot.score).toBeGreaterThanOrEqual(5);
     expect(snapshot.counters.obstaclesPassed).toBeGreaterThanOrEqual(4);
     expect(snapshot.counters.coinsCollected).toBeLessThanOrEqual(snapshot.counters.coinsSpawned);
@@ -185,17 +189,43 @@ describe('deterministic seed, observability, and gimmicks', () => {
     expect(aSnapshot.nextObstacle?.gapY).not.toBe(bSnapshot.nextObstacle?.gapY);
   });
 
-  it('reaches all five selected gimmicks under a deterministic playable run', () => {
+  it('reaches all eight selected gimmicks under a deterministic playable run', () => {
     const engine = makeEngine('e2e-all-gimmicks');
     engine.startRun();
-    const snapshot = stepUntil(engine, reachedAllGimmicks, 16);
+    const snapshot = stepUntil(engine, reachedAllGimmicks, 28);
     expect(snapshot.phase).toBe('playing');
-    expect(snapshot.seenGimmicks).toEqual(expect.arrayContaining(['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin']));
+    expect(snapshot.seenGimmicks).toEqual(expect.arrayContaining(['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust']));
     expect(snapshot.counters.gravityFlipSeen).toBeGreaterThan(0);
     expect(snapshot.counters.movingPipeSeen).toBeGreaterThan(0);
     expect(snapshot.counters.sizeShiftSeen).toBeGreaterThan(0);
     expect(snapshot.counters.speedRingSeen).toBeGreaterThan(0);
     expect(snapshot.counters.riskCoinSeen).toBeGreaterThan(0);
+    expect(snapshot.counters.slowMoSeen).toBeGreaterThan(0);
+    expect(snapshot.counters.shieldBubbleSeen).toBeGreaterThan(0);
+    expect(snapshot.counters.windGustSeen).toBeGreaterThan(0);
+  });
+
+  it('new support gimmicks activate through normal play and expose readable effects', () => {
+    const slowEngine = makeEngine('e2e-all-gimmicks');
+    slowEngine.startRun();
+    const slowed = stepUntil(slowEngine, (snapshot) => includesActive(snapshot, 'slowMo'), 20);
+    expect(slowed.phase).toBe('playing');
+    expect(slowed.activeGimmicks).toContain('slowMo');
+    expect(slowed.difficulty.speed).toBeLessThan(150);
+
+    const shieldEngine = makeEngine('e2e-all-gimmicks');
+    shieldEngine.startRun();
+    const shielded = stepUntil(shieldEngine, (snapshot) => includesActive(snapshot, 'shieldBubble'), 22);
+    expect(shielded.phase).toBe('playing');
+    expect(shielded.activeGimmicks).toContain('shieldBubble');
+    expect(shielded.counters.shieldBubbleSeen).toBeGreaterThan(0);
+
+    const windEngine = makeEngine('e2e-all-gimmicks');
+    windEngine.startRun();
+    const gusting = stepUntil(windEngine, (snapshot) => includesActive(snapshot, 'windGust'), 24);
+    expect(gusting.phase).toBe('playing');
+    expect(gusting.activeGimmicks).toContain('windGust');
+    expect(Math.abs(gusting.player.vy)).toBeLessThanOrEqual(560);
   });
 
   it('observability snapshot contains required fields and is read-only', () => {

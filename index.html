@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Falppy Bird - a fair skill-first gimmick flapper" />
-    <title>Falppy Bird</title>
+    <meta name="description" content="Crappy Bird - 다양한 기믹이 더해진 가벼운 웹 게임" />
+    <title>Crappy Bird</title>
   </head>
   <body>
-    <main id="app" aria-label="Falppy Bird game">
-      <canvas id="game" aria-label="Falppy Bird canvas" role="img"></canvas>
-      <section id="hud" aria-live="polite">
-        <div class="stat"><span>Score</span><strong id="score">0</strong></div>
-        <div class="stat"><span>High</span><strong id="high-score">0</strong></div>
-        <button id="mute" type="button" aria-label="Toggle mute">Sound On</button>
+    <main id="app" aria-label="Crappy Bird 게임">
+      <canvas id="game" aria-label="Crappy Bird 플레이 화면" role="img"></canvas>
+      <section id="hud" aria-label="게임 상태">
+        <div class="stat"><span>점수</span><strong id="score">0</strong></div>
+        <div class="stat"><span>최고점</span><strong id="high-score">0</strong></div>
+        <button id="mute" type="button" aria-label="음소거 전환">소리 켜짐</button>
       </section>
-      <section id="overlay" aria-live="assertive">
-        <h1>Falppy Bird</h1>
-        <p id="overlay-message">Flap through fair chaos. Watch the warnings, chase the score.</p>
-        <p class="controls">Space / ↑ / Click / Tap: flap · M: mute · Space: restart</p>
-        <button id="start" type="button">Start Run</button>
+      <section id="overlay" aria-live="polite">
+        <h1>Crappy Bird</h1>
+        <p id="overlay-message">공정한 혼돈을 통과하세요. 경고를 보고 점수를 노리세요.</p>
+        <p class="controls">스페이스 / ↑ / 클릭 / 터치: 날갯짓 · M키: 음소거 · 게임 오버 후 스페이스: 재시작</p>
+        <button id="start" type="button">시작하기</button>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
