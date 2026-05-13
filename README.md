@@ -69,12 +69,8 @@ https://bbagwang.github.io/CrappyBird/
 
 ## Character image
 
-The renderer uses the included `public/player-character.svg` face sprite by default and quietly switches to `public/player-character.png` only when that optional file exists.
+The renderer uses the included `public/player-character.svg` face sprite by default so the live site stays console-clean with no missing optional image requests.
 
-To use a specific face image, save a square-ish PNG at:
-
-```text
-public/player-character.png
-```
+To use a different specific face image, replace the tracked SVG sprite or update `src/main.ts` to point `CanvasRenderer` at your square-ish PNG asset.
 
 Then rebuild or push to `main` so GitHub Pages redeploys.
