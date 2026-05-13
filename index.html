@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Falppy Bird - a fair skill-first gimmick flapper" />
+    <title>Falppy Bird</title>
+  </head>
+  <body>
+    <main id="app" aria-label="Falppy Bird game">
+      <canvas id="game" aria-label="Falppy Bird canvas" role="img"></canvas>
+      <section id="hud" aria-live="polite">
+        <div class="stat"><span>Score</span><strong id="score">0</strong></div>
+        <div class="stat"><span>High</span><strong id="high-score">0</strong></div>
+        <button id="mute" type="button" aria-label="Toggle mute">Sound On</button>
+      </section>
+      <section id="overlay" aria-live="assertive">
+        <h1>Falppy Bird</h1>
+        <p id="overlay-message">Flap through fair chaos. Watch the warnings, chase the score.</p>
+        <p class="controls">Space / ↑ / Click / Tap: flap · M: mute · Space: restart</p>
+        <button id="start" type="button">Start Run</button>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
