@@ -70,6 +70,7 @@ test('시작 화면, 레이아웃, 음소거, 디버그 표면이 안전하다',
   await page.goto('/?seed=startup');
   await expect(page.getByRole('heading', { name: 'Crappy Bird' })).toBeVisible();
   await expect(page.getByRole('button', { name: '시작하기' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '피자 모드 전환' })).toBeVisible();
   await expect(page.getByRole('button', { name: '음소거 전환' })).toBeVisible();
   await expect(page.locator('#high-score')).toHaveText('9');
   await expect
@@ -90,6 +91,25 @@ test('시작 화면, 레이아웃, 음소거, 디버그 표면이 안전하다',
   const canvasBox = await page.locator('#game').boundingBox();
   expect(canvasBox?.width).toBeGreaterThan(240);
   expect(canvasBox?.height).toBeGreaterThan(360);
+  expect(errors).toEqual([]);
+});
+
+test('피자 모드는 UI 토글만으로 실제 날갯짓 입력을 넣어 플레이를 진행한다', async ({ page }) => {
+  const errors = attachConsoleGuards(page);
+  await page.goto('/?seed=pizza-mode-ui');
+  const pizzaMode = page.getByRole('button', { name: '피자 모드 전환' });
+  await expect(pizzaMode).toContainText('피자 모드');
+  await pizzaMode.click();
+  await expect(pizzaMode).toHaveAttribute('aria-pressed', 'true');
+  await expect(pizzaMode).toContainText('피자 모드 중');
+
+  await expect.poll(async () => (await snapshot(page)).phase).toBe('playing');
+  await expect.poll(async () => (await snapshot(page)).counters.inputEvents, { timeout: 10_000 }).toBeGreaterThan(2);
+  await expect.poll(async () => (await snapshot(page)).score, { timeout: 20_000 }).toBeGreaterThanOrEqual(4);
+
+  const progressed = await snapshot(page);
+  expect(progressed.phase).toBe('playing');
+  expect(progressed.counters.obstaclesPassed).toBeGreaterThanOrEqual(4);
   expect(errors).toEqual([]);
 });
 

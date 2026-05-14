@@ -27,8 +27,8 @@ const FLAP_VELOCITY = -410;
 const MAX_FALL_SPEED = 560;
 const BASE_SPEED = 132;
 const SPEED_CAP = 220;
-const BASE_GAP = 280;
-const MIN_GAP = 220;
+const BASE_GAP = 340;
+const MIN_GAP = 300;
 const PIPE_WIDTH = 68;
 const TELEGRAPH_MIN_SECONDS = 1.2;
 type PatternType = 'normal' | GimmickType;
@@ -288,7 +288,7 @@ export class GameEngine {
     this.counters.obstaclesSpawned += 1;
 
     if (pattern === 'movingPipe') this.counters.movingPipeSeen += 1;
-    if (pattern === 'gravityFlip') this.spawnZone('gravityFlip', obstacle.x - 96, FIELD_HEIGHT / 2, 54, FIELD_HEIGHT);
+    if (pattern === 'gravityFlip') this.spawnZone('gravityFlip', obstacle.x - 180, FIELD_HEIGHT / 2, 84, FIELD_HEIGHT);
     if (pattern === 'sizeShift') this.spawnZone('sizeShift', obstacle.x - 92, gapY, 58, gapHeight + 42);
     if (pattern === 'speedRing') this.spawnZone('speedRing', obstacle.x - 92, gapY, 62, gapHeight + 18);
     if (pattern === 'riskCoin') this.spawnRiskCoin(obstacle.x + obstacle.width / 2, this.riskCoinY(gapY, gapHeight));

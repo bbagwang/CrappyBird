@@ -6,6 +6,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const port = 4274;
 const url = `http://127.0.0.1:${port}`;
 const artifactsDir = 'artifacts';
+const requiredGimmicks = ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust'];
+const pizzaModeTargetScore = 80;
 
 async function waitForServer(timeoutMs = 60_000) {
   const start = Date.now();
@@ -51,6 +53,44 @@ async function waitForGameOver(page) {
   throw new Error('조종을 멈춘 뒤 자연스러운 게임 오버가 필요합니다');
 }
 
+async function observePizzaMode(page) {
+  await page.goto(`${url}/?seed=pizza-mode-long-run`);
+  await page.locator('#pizza-mode').click();
+  const start = Date.now();
+  let latest = await snapshot(page);
+  const initialRestarts = latest.counters.restarts;
+  while (Date.now() - start < 130_000) {
+    latest = await snapshot(page);
+    if (latest.phase === 'gameOver' || latest.counters.restarts > initialRestarts) {
+      throw new Error(`피자 모드가 목표 점수 전에 실패했습니다: ${JSON.stringify({
+        phase: latest.phase,
+        score: latest.score,
+        deathCause: latest.deathCause,
+        restarts: latest.counters.restarts,
+      })}`);
+    }
+    const sawEveryGimmick = requiredGimmicks.every((gimmick) => latest.seenGimmicks.includes(gimmick));
+    if (latest.phase === 'playing' && latest.score >= pizzaModeTargetScore && latest.counters.obstaclesPassed >= pizzaModeTargetScore && latest.counters.inputEvents > 20 && sawEveryGimmick) {
+      return {
+        score: latest.score,
+        obstaclesPassed: latest.counters.obstaclesPassed,
+        inputEvents: latest.counters.inputEvents,
+        elapsedMs: latest.counters.elapsedMs,
+        seenGimmicks: latest.seenGimmicks,
+        targetScore: pizzaModeTargetScore,
+        restarts: latest.counters.restarts,
+      };
+    }
+    await page.waitForTimeout(120);
+  }
+  throw new Error(`피자 모드가 충분히 진행되지 않았습니다: ${JSON.stringify({
+    phase: latest.phase,
+    score: latest.score,
+    obstaclesPassed: latest.counters.obstaclesPassed,
+    inputEvents: latest.counters.inputEvents,
+  })}`);
+}
+
 const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(port)], {
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -92,18 +132,20 @@ try {
     });
     if (run < 5) await page.keyboard.press('Space');
   }
+  const pizzaModeObservation = await observePizzaMode(page);
+  for (const gimmick of pizzaModeObservation.seenGimmicks) allSeen.add(gimmick);
 
   await page.screenshot({ path: `${artifactsDir}/actual-play-final.png`, fullPage: true });
   await context.close();
   await browser.close();
 
-  const required = ['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust'];
-  const missing = required.filter((gimmick) => !allSeen.has(gimmick));
+  const missing = requiredGimmicks.filter((gimmick) => !allSeen.has(gimmick));
   const report = {
     url,
     runs,
     allSeenGimmicks: [...allSeen].sort(),
     missingGimmicks: missing,
+    pizzaModeObservation,
     consoleErrors,
     fairness: '플레이 조종을 멈춘 뒤 실제 입력만으로 사망을 확인했습니다. 보이지 않는 디버그 지름길은 사용하지 않았습니다.',
     restartReliability: runs.every((run) => run.restarts >= 1),

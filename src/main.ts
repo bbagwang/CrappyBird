@@ -1,5 +1,6 @@
 import './style.css';
 import { AudioFeedback } from './game/audio';
+import { AutopilotController } from './game/autopilot';
 import { GameEngine } from './game/engine';
 import { CanvasRenderer } from './game/renderer';
 import { BrowserStorage } from './game/storage';
@@ -15,6 +16,7 @@ const canvas = requireElement<HTMLCanvasElement>('#game');
 const scoreElement = requireElement<HTMLElement>('#score');
 const highScoreElement = requireElement<HTMLElement>('#high-score');
 const muteButton = requireElement<HTMLButtonElement>('#mute');
+const pizzaModeButton = requireElement<HTMLButtonElement>('#pizza-mode');
 const overlay = requireElement<HTMLElement>('#overlay');
 const overlayMessage = requireElement<HTMLElement>('#overlay-message');
 const startButton = requireElement<HTMLButtonElement>('#start');
@@ -25,12 +27,15 @@ const assetBase = import.meta.env.BASE_URL;
 const playerImageUrl = `${assetBase}player-character.jpg`;
 const renderer = new CanvasRenderer(canvas, playerImageUrl);
 const audio = new AudioFeedback(() => engine.getSnapshot().muted);
+const autopilot = new AutopilotController();
+let pizzaModeEnabled = false;
 let lastTime = performance.now();
 let lastSnapshot = engine.getSnapshot();
 
 function frame(now: number): void {
   const delta = (now - lastTime) / 1000;
   lastTime = now;
+  runPizzaMode(engine.getSnapshot());
   engine.update(delta);
   const snapshot = engine.getSnapshot();
   playTransitionSounds(lastSnapshot, snapshot);
@@ -45,6 +50,9 @@ function updateHud(snapshot: GameSnapshot): void {
   highScoreElement.textContent = String(snapshot.highScore);
   muteButton.textContent = snapshot.muted ? '음소거' : '소리 켜짐';
   muteButton.setAttribute('aria-pressed', String(snapshot.muted));
+  pizzaModeButton.textContent = pizzaModeEnabled ? '피자 모드 중' : '피자 모드';
+  pizzaModeButton.setAttribute('aria-pressed', String(pizzaModeEnabled));
+  pizzaModeButton.classList.toggle('active', pizzaModeEnabled);
 
   if (snapshot.phase === 'playing') {
     overlay.classList.add('hidden');
@@ -54,10 +62,14 @@ function updateHud(snapshot: GameSnapshot): void {
   overlay.classList.remove('hidden');
   if (snapshot.phase === 'start') {
     startButton.textContent = '시작하기';
-    overlayMessage.textContent = '공정한 혼돈을 통과하세요. 경고를 보고 점수를 노리세요.';
+    overlayMessage.textContent = pizzaModeEnabled
+      ? '피자 모드가 켜졌습니다. 입력 없이도 스스로 출발합니다.'
+      : '공정한 혼돈을 통과하세요. 경고를 보고 점수를 노리세요.';
   } else {
     startButton.textContent = '다시 시작';
-    overlayMessage.textContent = `게임 오버 (${deathCauseLabel(snapshot.deathCause)}). 점수 ${snapshot.score}. 최고점 ${snapshot.highScore}. 스페이스 또는 클릭으로 바로 재시작하세요.`;
+    overlayMessage.textContent = pizzaModeEnabled
+      ? `게임 오버 (${deathCauseLabel(snapshot.deathCause)}). 피자 모드가 곧 다시 시작합니다.`
+      : `게임 오버 (${deathCauseLabel(snapshot.deathCause)}). 점수 ${snapshot.score}. 최고점 ${snapshot.highScore}. 스페이스 또는 클릭으로 바로 재시작하세요.`;
   }
 }
 
@@ -85,6 +97,18 @@ function toggleMute(): void {
   updateHud(engine.getSnapshot());
 }
 
+function togglePizzaMode(): void {
+  pizzaModeEnabled = !pizzaModeEnabled;
+  if (!pizzaModeEnabled) autopilot.reset();
+  runPizzaMode(engine.getSnapshot());
+  updateHud(engine.getSnapshot());
+}
+
+function runPizzaMode(snapshot: GameSnapshot): void {
+  if (!pizzaModeEnabled) return;
+  if (autopilot.nextAction(snapshot) === 'flap') flap();
+}
+
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Space' || event.code === 'ArrowUp') {
@@ -95,6 +119,10 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
     toggleMute();
   }
+  if (event.code === 'KeyA') {
+    event.preventDefault();
+    togglePizzaMode();
+  }
 });
 canvas.addEventListener('pointerdown', (event) => {
   event.preventDefault();
@@ -102,6 +130,7 @@ canvas.addEventListener('pointerdown', (event) => {
 });
 startButton.addEventListener('click', () => flap());
 muteButton.addEventListener('click', () => toggleMute());
+pizzaModeButton.addEventListener('click', () => togglePizzaMode());
 
 window.crappyDebug = Object.freeze({
   setSeed(seed: string): boolean {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AutopilotController, shouldAutopilotFlap } from './autopilot';
 import { circleIntersectsRect } from './collision';
 import { GameEngine } from './engine';
 import { MemoryStorage } from './storage';
@@ -24,6 +25,20 @@ function stepUntil(engine: GameEngine, accept: (snapshot: GameSnapshot) => boole
   const iterations = Math.ceil(maxSeconds / dt);
   for (let index = 0; index < iterations; index += 1) {
     pilotInput(engine);
+    engine.update(dt);
+    const snapshot = engine.getSnapshot();
+    if (accept(snapshot) || snapshot.phase === 'gameOver') return snapshot;
+  }
+  return engine.getSnapshot();
+}
+
+function stepWithAutopilot(engine: GameEngine, accept: (snapshot: GameSnapshot) => boolean, maxSeconds: number): GameSnapshot {
+  const autopilot = new AutopilotController();
+  const dt = 1 / 60;
+  const iterations = Math.ceil(maxSeconds / dt);
+  for (let index = 0; index < iterations; index += 1) {
+    const before = engine.getSnapshot();
+    if (autopilot.nextAction(before) === 'flap') engine.flap();
     engine.update(dt);
     const snapshot = engine.getSnapshot();
     if (accept(snapshot) || snapshot.phase === 'gameOver') return snapshot;
@@ -250,5 +265,50 @@ describe('deterministic seed, observability, and gimmicks', () => {
   it('debug-like engine surface does not expose gameplay shortcut commands', () => {
     const publicMethods = Object.getOwnPropertyNames(GameEngine.prototype);
     expect(publicMethods).not.toEqual(expect.arrayContaining(['grantScore', 'skipHazards', 'forceSurvival', 'disableCollision', 'autoPassPipes', 'teleportPlayer']));
+  });
+});
+
+describe('autopilot observation mode', () => {
+  it('requests a normal input to start from non-playing phases', () => {
+    const engine = makeEngine('autopilot-start');
+    const autopilot = new AutopilotController();
+    expect(autopilot.nextAction(engine.getSnapshot())).toBe('flap');
+    engine.flap();
+    expect(engine.getSnapshot().phase).toBe('playing');
+  });
+
+  it('aims below normal gravity and above inverted gravity without bypassing physics', () => {
+    const engine = makeEngine('autopilot-aim');
+    engine.startRun();
+    const base = engine.getSnapshot();
+    const lowNormal: GameSnapshot = {
+      ...base,
+      player: { ...base.player, y: 640, vy: 0, gravityInverted: false },
+      nextObstacle: null,
+    };
+    const highNormal: GameSnapshot = {
+      ...base,
+      player: { ...base.player, y: 90, vy: 0, gravityInverted: false },
+      nextObstacle: null,
+    };
+    const highInverted: GameSnapshot = {
+      ...base,
+      player: { ...base.player, y: 90, vy: 0, gravityInverted: true },
+      nextObstacle: null,
+    };
+
+    expect(shouldAutopilotFlap(lowNormal)).toBe(true);
+    expect(shouldAutopilotFlap(highNormal)).toBe(false);
+    expect(shouldAutopilotFlap(highInverted)).toBe(true);
+  });
+
+  it('survives with real flap inputs long enough to observe all selected gimmicks', () => {
+    const engine = makeEngine('e2e-all-gimmicks');
+    const snapshot = stepWithAutopilot(engine, (state) => state.score >= 150 && state.counters.obstaclesPassed >= 120 && reachedAllGimmicks(state), 180);
+    expect(snapshot.phase).toBe('playing');
+    expect(snapshot.score).toBeGreaterThanOrEqual(150);
+    expect(snapshot.counters.obstaclesPassed).toBeGreaterThanOrEqual(120);
+    expect(snapshot.counters.inputEvents).toBeGreaterThan(0);
+    expect(snapshot.seenGimmicks).toEqual(expect.arrayContaining(['gravityFlip', 'movingPipe', 'sizeShift', 'speedRing', 'riskCoin', 'slowMo', 'shieldBubble', 'windGust']));
   });
 });

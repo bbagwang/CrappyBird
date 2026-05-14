@@ -43,32 +43,39 @@ body {
   top: clamp(20px, 5vh, 48px);
   left: 50%;
   transform: translateX(-50%);
-  width: min(440px, calc(100vw - 48px));
+  width: min(468px, calc(100vw - 32px));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
 
-.stat, #mute {
+.stat, #mute, #pizza-mode {
   border: 1px solid rgba(255,255,255,0.28);
   background: rgba(8, 16, 29, 0.72);
   backdrop-filter: blur(10px);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.22);
 }
 
-.stat { display: grid; gap: 0; min-width: 84px; text-align: center; }
+.stat { display: grid; gap: 0; min-width: 76px; text-align: center; }
 .stat span { color: #a9b8d3; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .stat strong { font-size: 1.35rem; line-height: 1.05; }
 
-#mute {
+#mute, #pizza-mode {
   color: #f7fbff;
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
+  white-space: nowrap;
+}
+
+#pizza-mode.active {
+  border-color: rgba(255, 207, 77, 0.72);
+  background: linear-gradient(135deg, rgba(255, 207, 77, 0.92), rgba(255, 122, 89, 0.9));
+  color: #20120a;
 }
 
 #overlay {
@@ -103,9 +110,20 @@ body {
   box-shadow: 0 12px 36px rgba(255, 132, 85, 0.35);
 }
 
-#start:focus-visible, #mute:focus-visible {
+#start:focus-visible, #mute:focus-visible, #pizza-mode:focus-visible {
   outline: 3px solid #7dd3fc;
   outline-offset: 4px;
+}
+
+@media (max-width: 430px) {
+  #hud {
+    flex-wrap: wrap;
+    justify-content: center;
+    top: 14px;
+  }
+  .stat, #mute, #pizza-mode {
+    padding: 7px 10px;
+  }
 }
 
 @media (max-height: 620px) {
